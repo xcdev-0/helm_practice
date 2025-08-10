@@ -3,11 +3,10 @@
 set -e  # Exit on any error
 
 # Configurable variables
-KAFKA_NAME="kafka-1"
-CN="${KAFKA_NAME}.kafka-headless.default.svc"
-KEYSTORE_FILENAME="${KAFKA_NAME}.keystore.jks"
+CN="kafka.kafka-headless.default.svc"
+KEYSTORE_FILENAME="kafka.keystore.jks"
 CA_PASS="capassword"
-STORE_PASS="storepassword"
+TRUST_STORE_PASS="truststorepassword"
 
 VALIDITY_IN_DAYS=3650
 DEFAULT_TRUSTSTORE_FILENAME="kafka.truststore.jks"
@@ -52,20 +51,24 @@ if [ "$generate_trust_store" == "y" ]; then
   mkdir $TRUSTSTORE_WORKING_DIRECTORY
 
   # Generate CA private key and cert
+  # -out: certificate, -keyout: private key
+  # ca 인증서와 키 생성
   openssl req -new -x509 \
     -keyout $TRUSTSTORE_WORKING_DIRECTORY/ca-key \
     -out $TRUSTSTORE_WORKING_DIRECTORY/$CA_CERT_FILE \
     -days $VALIDITY_IN_DAYS \
-    -subj "/CN=${CN}/O=pknu/C=KR" \
+    -subj "/CN=ca/O=pknu/C=KR" \
     -passout pass:"$CA_PASS"
 
   trust_store_private_key_file="$TRUSTSTORE_WORKING_DIRECTORY/ca-key"
 
+  # CA 인증서를 JKS truststore 파일에 넣는 작업
   echo "⛏️ creating truststore file"
   # Import the CA cert into the truststore
   keytool -keystore $TRUSTSTORE_WORKING_DIRECTORY/$DEFAULT_TRUSTSTORE_FILENAME \
+    -storetype JKS \
     -alias CARoot -import -file $TRUSTSTORE_WORKING_DIRECTORY/$CA_CERT_FILE \
-    -storepass "$STORE_PASS" 
+    -storepass "$TRUST_STORE_PASS" 
 
   trust_store_file="$TRUSTSTORE_WORKING_DIRECTORY/$DEFAULT_TRUSTSTORE_FILENAME"
 
@@ -85,60 +88,3 @@ echo "Continuing with:
  - trust store private key: $trust_store_private_key_file"
 
 mkdir $KEYSTORE_WORKING_DIRECTORY
-
-# ===============================
-# Generate the keystore and self-signed cert
-# ===============================
-
-# Generate the keystore and self-signed cert
-# 이 keytool -genkey로 만들어진 self-signed cert는 실제로는 쓰지 않고,
-# 다음 단계에서 CSR을 만들고 CA로 다시 서명하는 과정을 거침
-# 발급된 인증서는 다시 keystore에 덮어씌어짐
-
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME \
-  -alias localhost \
-  -validity $VALIDITY_IN_DAYS \
-  -keyalg RSA \
-  -genkey \
-  -dname "CN=${CN}, OU=Dev, O=pknu, L=Busan, ST=Busan, C=KR" \
-  -storepass "$STORE_PASS" 
-
-echo "🪸 generating csr"
-# Export the CA cert from truststore (to sign CSR)
-keytool -keystore $trust_store_file -export -alias CARoot -rfc -file $CA_CERT_FILE \
-  -storepass "$STORE_PASS"
-
-# Generate CSR (certificate signing request)
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhost \
-  -certreq -file $KEYSTORE_SIGN_REQUEST \
-  -storepass "$STORE_PASS"
-
-
-echo "🪸 generating crt using ca'cert"
-# Sign the CSR with the CA private key
-openssl x509 -req -CA $CA_CERT_FILE -CAkey $trust_store_private_key_file \
-  -in $KEYSTORE_SIGN_REQUEST -out $KEYSTORE_SIGNED_CERT \
-  -days $VALIDITY_IN_DAYS -CAcreateserial \
-  -passin pass:"$CA_PASS" 
-
-
-echo "🪼 import ca cert into keystore"
-# Import CA cert into keystore
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias CARoot \
-  -import -file $CA_CERT_FILE \
-  -storepass "$STORE_PASS"
-
-rm $CA_CERT_FILE
-
-# Import the signed cert into keystore
-keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhost \
-  -import -file $KEYSTORE_SIGNED_CERT \
-  -storepass "$STORE_PASS"
-
-# Ask user if intermediate files should be deleted
-read -p "Delete intermediate files? [yn] " delete_intermediate_files
-if [ "$delete_intermediate_files" == "y" ]; then
-  rm $KEYSTORE_SIGN_REQUEST_SRL
-  rm $KEYSTORE_SIGN_REQUEST
-  rm $KEYSTORE_SIGNED_CERT
-fi

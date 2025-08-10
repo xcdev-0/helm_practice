@@ -14,6 +14,7 @@ Return the proper Kafka controller-eligible fullname
 
 {{/*
 Return the proper Kafka broker fullname
+"common.names.fullname":풀네임오버라이드/ 릴리스네임 / 릴리스네임-차트네임 중 하나
 */}}
 {{- define "kafka.broker.fullname" -}}
 {{- printf "%s-broker" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" -}}

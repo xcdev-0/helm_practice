@@ -1,0 +1,9 @@
+[v3_req]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = my-kafka.default.svc.cluster.local
+DNS.2 = my-kafka.default.svc
+DNS.3 = *.my-kafka-controller-headless.default.svc.cluster.local
+DNS.4 = *.my-kafka-controller-headless.default.svc
+DNS.5 = *.my-kafka-broker-headless.default.svc.cluster.local
+DNS.6 = *.my-kafka-broker-headless.default.svc

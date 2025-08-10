@@ -172,34 +172,24 @@ interBrokerProtocolVersion: ""
 ## Kafka listeners configuration
 ##
 listeners:
-  ## @param listeners.client.name Name for the Kafka client listener
-  ## @param listeners.client.containerPort Port for the Kafka client listener
-  ## @param listeners.client.protocol Security protocol for the Kafka client listener. Allowed values are 'PLAINTEXT', 'SASL_PLAINTEXT', 'SASL_SSL' and 'SSL'
-  ## @param listeners.client.sslClientAuth Optional. If SASL_SSL is enabled, configure mTLS TLS authentication type. If SSL protocol is enabled, overrides tls.authType for this listener. Allowed values are 'none', 'requested' and 'required'
+
   client:
     containerPort: 9092
-    protocol: SASL
+    protocol: SASL_SSL
     name: CLIENT
-    sslClientAuth: ""
-  ## @param listeners.controller.name Name for the Kafka controller listener
-  ## @param listeners.controller.containerPort Port for the Kafka controller listener
-  ## @param listeners.controller.protocol Security protocol for the Kafka controller listener. Allowed values are 'PLAINTEXT', 'SASL_PLAINTEXT', 'SASL_SSL' and 'SSL'
-  ## @param listeners.controller.sslClientAuth Optional. If SASL_SSL is enabled, configure mTLS TLS authentication type. If SSL protocol is enabled, overrides tls.authType for this listener. Allowed values are 'none', 'requested' and 'required'
-  ## Ref: https://cwiki.apache.org/confluence/display/KAFKA/KIP-684+-+Support+mutual+TLS+authentication+on+SASL_SSL+listeners
+    sslClientAuth: none
+  
   controller:
     name: CONTROLLER
     containerPort: 9093
-    protocol: SASL_PLAINTEXT
-    sslClientAuth: ""
-  ## @param listeners.interbroker.name Name for the Kafka inter-broker listener
-  ## @param listeners.interbroker.containerPort Port for the Kafka inter-broker listener
-  ## @param listeners.interbroker.protocol Security protocol for the Kafka inter-broker listener. Allowed values are 'PLAINTEXT', 'SASL_PLAINTEXT', 'SASL_SSL' and 'SSL'
-  ## @param listeners.interbroker.sslClientAuth Optional. If SASL_SSL is enabled, configure mTLS TLS authentication type. If SSL protocol is enabled, overrides tls.authType for this listener. Allowed values are 'none', 'requested' and 'required'
+    protocol: SSL
+    sslClientAuth: none
+
   interbroker:
     containerPort: 9094
-    protocol: TLS
+    protocol: SSL
     name: INTERNAL
-    sslClientAuth: ""
+    sslClientAuth: none
   ## @param listeners.external.containerPort Port for the Kafka external listener
   ## @param listeners.external.protocol Security protocol for the Kafka external listener. . Allowed values are 'PLAINTEXT', 'SASL_PLAINTEXT', 'SASL_SSL' and 'SSL'
   ## @param listeners.external.name Name for the Kafka external listener
@@ -229,7 +219,9 @@ listeners:
 ## Kafka SASL settings for authentication, required if SASL_PLAINTEXT or SASL_SSL listeners are configured
 ##
 sasl:
-  ## @param sasl.enabledMechanisms Comma-separated list of allowed SASL mechanisms when SASL listeners are configured. Allowed types: `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, `OAUTHBEARER`
+  ## @param sasl.enabledMechanisms Comma-separated list of allowed SASL mechanisms
+  ## when SASL listeners are configured. 
+  ## Allowed types: `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`, `OAUTHBEARER`
   ## NOTE: At the moment, Kafka Raft mode does not support SCRAM, that is why only PLAIN is configured.
   ##
   enabledMechanisms: PLAIN,SCRAM-SHA-256,SCRAM-SHA-512
@@ -279,10 +271,15 @@ sasl:
   client:
     users:
       - user1
-    passwords: ""
+    passwords: "user1password"
   ## @param sasl.existingSecret Name of the existing secret containing credentials for client.users, interbroker.user and controller.user
   ## Create this secret running the command below where SECRET_NAME is the name of the secret you want to create:
-  ##       kubectl create secret generic SECRET_NAME --from-literal=client-passwords=CLIENT_PASSWORD1,CLIENT_PASSWORD2 --from-literal=inter-broker-password=INTER_BROKER_PASSWORD --from-literal=inter-broker-client-secret=INTER_BROKER_CLIENT_SECRET --from-literal=controller-password=CONTROLLER_PASSWORD --from-literal=controller-client-secret=CONTROLLER_CLIENT_SECRET
+  ##       kubectl create secret generic SECRET_NAME 
+  ## --from-literal=client-passwords=CLIENT_PASSWORD1,CLIENT_PASSWORD2 <- client password!!
+  ##  --from-literal=inter-broker-password=INTER_BROKER_PASSWORD 
+  ## --from-literal=inter-broker-client-secret=INTER_BROKER_CLIENT_SECRET <- oauthBearer 타입일때 
+  ## --from-literal=controller-password=CONTROLLER_PASSWORD 
+  ## --from-literal=controller-client-secret=CONTROLLER_CLIENT_SECRET
   ## The client secrets are only required when using OAuthBearer as SASL mechanism.
   ## Client, inter-broker and controller passwords are only required if the SASL mechanism includes something other than OAuthBearer.
   ##
@@ -298,18 +295,8 @@ tls:
   ## Certificates must be in proper order, where the top certificate is the leaf and the bottom certificate is the top-most intermediate CA.
   ##
   pemChainIncluded: false
-  ## @param tls.autoGenerated.enabled Enable automatic generation of TLS certificates (only supported if `tls.type` is `PEM`)
-  ## @param tls.autoGenerated.engine Mechanism to generate the certificates (allowed values: helm, cert-manager)
-  ## @param tls.autoGenerated.customAltNames List of additional subject alternative names (SANs) for the automatically generated TLS certificates.
-  ## @param tls.autoGenerated.certManager.existingIssuer The name of an existing Issuer to use for generating the certificates (only for `cert-manager` engine)
-  ## @param tls.autoGenerated.certManager.existingIssuerKind Existing Issuer kind, defaults to Issuer (only for `cert-manager` engine)
-  ## @param tls.autoGenerated.certManager.keyAlgorithm Key algorithm for the certificates (only for `cert-manager` engine)
-  ## @param tls.autoGenerated.certManager.keySize Key size for the certificates (only for `cert-manager` engine)
-  ## @param tls.autoGenerated.certManager.duration Duration for the certificates (only for `cert-manager` engine)
-  ## @param tls.autoGenerated.certManager.renewBefore Renewal period for the certificates (only for `cert-manager` engine)
-  ##
   autoGenerated:
-    enabled: true
+    enabled: false
     engine: helm
     customAltNames: []
     certManager:
@@ -330,24 +317,16 @@ tls:
   ##        --from-file=kafka-controller-0.keystore.jks=./kafka-controller-0.keystore.jks --from-file=kafka-broker-0.keystore.jks=./kafka-broker-0.keystore.jks ...
   ##
   ## NOTE: Alternatively, a single keystore can be provided for all nodes under the key 'kafka.keystore.jks', this keystore will be used by all nodes unless overridden by the 'kafka-<role>-X.keystore.jks' file
-  ##
-  ## When using 'pem' format for certificates, each secret should contain a public CA certificate, a public certificate and one private key.
-  ## Create these secrets following the steps below:
-  ## 1) Create a certificate key and signing request per Kafka broker, and sign the signing request with your CA
-  ## 2) Rename your CA file to `ca.crt`.
-  ## 3) Rename your certificates to `kafka-X.tls.crt` where X is the ID of each Kafka broker.
-  ## 3) Rename your keys to `kafka-X.tls.key` where X is the ID of each Kafka broker.
-  ## 4) Run the command below one time per broker to create its associated secret (SECRET_NAME_X is the name of the secret you want to create):
-  ##      kubectl create secret generic SECRET_NAME_0 --from-file=ca.crt=./ca.crt --from-file=kafka-controller-0.crt=./kafka-controller-0.crt --from-file=kafka-controller-0.key=./kafka-controller-0.key \
-  ##        --from-file=kafka-broker-0.crt=./kafka-broker-0.crt --from-file=kafka-broker-0.key=./kafka-broker-0.key ...
-  ##
-  ## NOTE: Alternatively, a single key and certificate can be provided for all nodes under the keys 'tls.crt' and 'tls.key'. These certificates will be used by all nodes unless overridden by the 'kafka-<role>-X.key' and 'kafka-<role>-X.crt' files
-  ##
-  existingSecret: ""
+  existingSecret: kafka-jks
+
   ## @param tls.passwordsSecret Name of the secret containing the password to access the JKS files or PEM key when they are password-protected. (`key`: `password`)
-  ##
+  ## jks파일 열기 위한 비밀번호다음 시크릿 객체
+  ## kubectl create secret generic kafka-tls-passwords \
+  ## --from-literal=keystore-password=changeit \
+  ## --from-literal=truststore-password=changeit
   passwordsSecret: ""
-  ## @param tls.passwordsSecretKeystoreKey The secret key from the tls.passwordsSecret containing the password for the Keystore.
+  ## @param tls.passwordsSecretKeystoreKey The secret key from the tls.passwordsSecret 
+  ## containing the password for the Keystore.
   ##
   passwordsSecretKeystoreKey: keystore-password
   ## @param tls.passwordsSecretTruststoreKey The secret key from the tls.passwordsSecret containing the password for the Truststore.
@@ -359,11 +338,11 @@ tls:
   ## @param tls.keystorePassword Password to access the JKS keystore when it is password-protected. Ignored when 'tls.passwordsSecret' is provided.
   ## When using tls.type=PEM, the generated keystore will use this password or randomly generate one.
   ##
-  keystorePassword: ""
+  keystorePassword: keystorepassword
   ## @param tls.truststorePassword Password to access the JKS truststore when it is password-protected. Ignored when 'tls.passwordsSecret' is provided.
   ## When using tls.type=PEM, the generated keystore will use this password or randomly generate one.
   ##
-  truststorePassword: ""
+  truststorePassword: truststorepassword
   ## @param tls.keyPassword Password to access the PEM key when it is password-protected.
   ## Note: ignored when using 'tls.passwordsSecret'
   ##
@@ -388,7 +367,7 @@ tls:
   ## @param tls.sslClientAuth Sets the default value for the ssl.client.auth Kafka setting.
   ## ref: https://docs.confluent.io/current/kafka/authentication_ssl.html#optional-settings
   ##
-  sslClientAuth: "required"
+  sslClientAuth: "none"
 ## @param extraEnvVars Extra environment variables to add to Kafka pods
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/kafka#configuration
 ## e.g:
@@ -1135,11 +1114,6 @@ broker:
   ## @param broker.replicaCount Number of Kafka broker-only nodes
   ##
   replicaCount: 0
-  ## @param broker.minId Minimal node.id values for broker-only nodes. Do not change after first initialization.
-  ## Broker-only id increment their ID starting at this minimal value.
-  ## We recommend setting this this value high enough, as IDs under this value will be used by controller-eligible nodes
-  ##
-  ##
   minId: 100
   ## @param broker.config Specify content for Kafka configuration for Kafka broker-only nodes (auto-generated based on other parameters otherwise)
   ## NOTE: This will override the configuration based on values, please act carefully
@@ -2281,7 +2255,8 @@ provisioning:
     ##
     tls:
       ## @param provisioning.auth.tls.type Format to use for TLS certificates. Allowed types: `JKS` and `PEM`.
-      ## Note: ignored if auth.tls.client.protocol different from one of these values: "SSL" "SASL_SSL"
+      ## Note: ignored if auth.tls.client.protocol different from one of these values: 
+      ## "SSL" "SASL_SSL"
       ##
       type: jks
       ## @param provisioning.auth.tls.certificatesSecret Existing secret containing the TLS certificates for the Kafka provisioning Job.
