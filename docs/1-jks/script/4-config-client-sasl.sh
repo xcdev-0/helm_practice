@@ -20,7 +20,10 @@ EOF
 kubectl cp -n default ./client.properties my-kafka-client:/tmp/client.properties
 kubectl cp -n default truststore/kafka.truststore.jks my-kafka-client:/tmp/kafka.truststore.jks
 
+exit 0
+
 ### pod안에서
+
 # 1) 토픽 생성 (브로커 수 모르면 RF=1)
 kafka-topics.sh \
   --bootstrap-server my-kafka.default.svc.cluster.local:9092 \

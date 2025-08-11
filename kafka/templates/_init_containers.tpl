@@ -234,6 +234,11 @@ Returns an init-container that prepares the Kafka configuration files for main c
               keytool -keystore /certs/kafka.truststore.jks -alias CARoot -import -file /certs/ca.crt -storepass "$KAFKA_TLS_TRUSTSTORE_PASSWORD" -noprompt
               # Remove extra files
               rm -f "/certs/kafka.keystore.p12" "/certs/tls.crt" "/certs/tls.key" "/certs/ca.crt"
+
+          # ======================================================================
+          #                             jks type 
+          # ======================================================================
+          
           elif [[ "$KAFKA_TLS_TYPE" = "JKS" ]]; then
               if [[ -f "/mounted-certs/kafka-${POD_ROLE}-${POD_ID}.keystore.jks" ]]; then
                   cp "/mounted-certs/kafka-${POD_ROLE}-${POD_ID}.keystore.jks" /certs/kafka.keystore.jks
@@ -307,6 +312,9 @@ Returns an init-container that prepares the Kafka configuration files for main c
       retry_while "test -f /shared/external-host.txt -o -f /shared/external-port.txt" || error "Timed out waiting for autodiscovery init-container"
       {{- end }}
 
+      # ================================================================
+      #                   1.   configmap 내용 설정파일에 복사
+      # ================================================================
       cp /configmaps/server.properties $KAFKA_CONF_FILE
 
       # Get pod ID and role, last and second last fields in the pod name respectively
@@ -327,15 +335,25 @@ Returns an init-container that prepares the Kafka configuration files for main c
           done
           echo "${INITIAL_CONTROLLERS[*]}" | awk -v OFS=',' '{$1=$1}1' > /shared/initial-controllers.txt
       fi
+      # ================================================================
+      #                   2. advertised listeners
+      # ================================================================
       {{- if not .context.Values.listeners.advertisedListeners }}
       replace_in_file "$KAFKA_CONF_FILE" "advertised-address-placeholder" "${MY_POD_NAME}.${KAFKA_FULLNAME}-${POD_ROLE}-headless.${MY_POD_NAMESPACE}.svc.${CLUSTER_DOMAIN}"
       {{- if $externalAccessEnabled }}
       configure_external_access
       {{- end }}
       {{- end }}
+
+      # ================================================================
+      #                   3. ssl & sasl
+      # ================================================================ 
       {{- if include "kafka.sslEnabled" .context }}
       configure_kafka_tls
       {{- end }}
+
+   
+      # sasl_env_vars는 helpers.tpl  {- define "kafka.saslEnv" -}} 에서 설정 
       {{- if include "kafka.saslEnabled" .context }}
       sasl_env_vars=(
         KAFKA_CLIENT_PASSWORDS
@@ -344,6 +362,7 @@ Returns an init-container that prepares the Kafka configuration files for main c
         KAFKA_CONTROLLER_PASSWORD
         KAFKA_CONTROLLER_CLIENT_SECRET
       )
+      # 파일 "${env_var}_FILE"에서 값을 가져오거나 ${!file_env_var}값을 사용
       for env_var in "${sasl_env_vars[@]}"; do
           file_env_var="${env_var}_FILE"
           if [[ -n "${!file_env_var:-}" ]]; then
