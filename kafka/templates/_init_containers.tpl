@@ -417,21 +417,32 @@ Returns an init-container that prepares the Kafka configuration files for main c
           name: {{ $kraftSecret }}
           key: controller-{{ $i }}-id
     {{- end }}
+
+
     {{- if $externalAccessEnabled }}
     - name: EXTERNAL_ACCESS_LISTENER_NAME
       value: {{ upper .context.Values.listeners.external.name | quote }}
     {{- $externalAccess := index .context.Values.externalAccess .role }}
+
+    # loadbalancer타입이고 자동디스커버리 비활성화일 때
     {{- if eq $externalAccess.service.type "LoadBalancer" }}
     {{- if not .context.Values.defaultInitContainers.autoDiscovery.enabled }}
     - name: EXTERNAL_ACCESS_HOSTS_LIST
       value: {{ join "," (default $externalAccess.service.loadBalancerIPs $externalAccess.service.loadBalancerNames) | quote }}
     {{- end }}
+
     - name: EXTERNAL_ACCESS_PORT
       value: {{ $externalAccess.service.ports.external | quote }}
+
+    # nodeport 타입
+    # 외부 아이피 설정 
     {{- else if eq $externalAccess.service.type "NodePort" }}
+    # 1
     {{- if $externalAccess.service.domain }}
     - name: EXTERNAL_ACCESS_HOST
       value: {{ $externalAccess.service.domain | quote }}
+
+    # 2
     {{- else if and $externalAccess.service.usePodIPs .context.Values.defaultInitContainers.autoDiscovery.enabled }}
     - name: MY_POD_IP
       valueFrom:
@@ -439,6 +450,8 @@ Returns an init-container that prepares the Kafka configuration files for main c
           fieldPath: status.podIP
     - name: EXTERNAL_ACCESS_HOST
       value: "$(MY_POD_IP)"
+
+    # 3
     {{- else if or $externalAccess.service.useHostIPs .context.Values.defaultInitContainers.autoDiscovery.enabled }}
     - name: HOST_IP
       valueFrom:
@@ -446,13 +459,20 @@ Returns an init-container that prepares the Kafka configuration files for main c
           fieldPath: status.hostIP
     - name: EXTERNAL_ACCESS_HOST
       value: "$(HOST_IP)"
+
+    # 4
     {{- else if and $externalAccess.service.externalIPs (not .context.Values.defaultInitContainers.autoDiscovery.enabled) }}
     - name: EXTERNAL_ACCESS_HOSTS_LIST
       value: {{ join "," $externalAccess.service.externalIPs }}
     {{- else }}
+
+    # 5
     - name: EXTERNAL_ACCESS_HOST_USE_PUBLIC_IP
       value: "true"
     {{- end }}
+
+    # 포트 설정 
+    # autoDiscovery == false 일때 
     {{- if not .context.Values.defaultInitContainers.autoDiscovery.enabled }}
     {{- if and $externalAccess.service.externalIPs (empty $externalAccess.service.nodePorts)}}
     - name: EXTERNAL_ACCESS_PORT
@@ -462,6 +482,9 @@ Returns an init-container that prepares the Kafka configuration files for main c
       value: {{ join "," $externalAccess.service.nodePorts | quote }}
     {{- end }}
     {{- end }}
+    
+
+    # ClusterIP 타입
     {{- else if eq $externalAccess.service.type "ClusterIP" }}
     - name: EXTERNAL_ACCESS_HOST
       value: {{ $externalAccess.service.domain | quote }}
@@ -471,6 +494,8 @@ Returns an init-container that prepares the Kafka configuration files for main c
       value: "true"
     {{- end }}
     {{- end }}
+
+
     {{- if include "kafka.saslEnabled" .context }}
     {{- include "kafka.saslEnv" .context | nindent 4 }}
     {{- end }}

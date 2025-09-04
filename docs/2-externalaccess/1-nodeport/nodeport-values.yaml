@@ -1,6 +1,15 @@
 # Copyright Broadcom, Inc. All Rights Reserved.
 # SPDX-License-Identifier: APACHE-2.0
 
+## @section Global parameters
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
+
+## @param global.imageRegistry Global Docker image registry
+## @param global.imagePullSecrets Global Docker registry secret names as an array
+## @param global.defaultStorageClass Global default StorageClass for Persistent Volume(s)
+##
 global:
   imageRegistry: ""
   ## E.g.
@@ -184,15 +193,12 @@ listeners:
   ## @param listeners.external.containerPort Port for the Kafka external listener
   ## @param listeners.external.protocol Security protocol for the Kafka external listener. . Allowed values are 'PLAINTEXT', 'SASL_PLAINTEXT', 'SASL_SSL' and 'SSL'
   ## @param listeners.external.name Name for the Kafka external listener
-  ## @param listeners.external.sslClientAuth Optional. 
-  ## If SASL_SSL is enabled, configure mTLS TLS authentication type. 
-  ## If SSL protocol is enabled, overrides tls.sslClientAuth for this listener. 
-  ## Allowed values are 'none', 'requested' and 'required'
+  ## @param listeners.external.sslClientAuth Optional. If SASL_SSL is enabled, configure mTLS TLS authentication type. If SSL protocol is enabled, overrides tls.sslClientAuth for this listener. Allowed values are 'none', 'requested' and 'required'
   external:
     containerPort: 9095
     protocol: SASL_PLAINTEXT
     name: EXTERNAL
-    sslClientAuth: none
+    sslClientAuth: ""
   ## @param listeners.extraListeners Array of listener objects to be appended to already existing listeners
   ## E.g.
   ## extraListeners:
@@ -265,7 +271,7 @@ sasl:
   client:
     users:
       - user1
-    passwords: ""
+    passwords: "user1password"
   ## @param sasl.existingSecret Name of the existing secret containing credentials for client.users, interbroker.user and controller.user
   ## Create this secret running the command below where SECRET_NAME is the name of the secret you want to create:
   ##       kubectl create secret generic SECRET_NAME 
@@ -277,7 +283,7 @@ sasl:
   ## The client secrets are only required when using OAuthBearer as SASL mechanism.
   ## Client, inter-broker and controller passwords are only required if the SASL mechanism includes something other than OAuthBearer.
   ##
-  existingSecret: kafka-sasl-passwords
+  existingSecret: ""
 ## @section Kafka TLS parameters
 ## Kafka TLS settings, required if SSL or SASL_SSL listeners are configured
 ##
@@ -300,46 +306,59 @@ tls:
       keyAlgorithm: RSA
       duration: 2160h
       renewBefore: 360h
-
-
-## truststore, keystore 파일을 가지는 시크릿 객체 생성
-## @param tls.existingSecret Name of the existing secret containing the TLS certificates for the Kafka nodes.
-## When using 'jks' format for certificates, each secret should contain a truststore and a keystore.
-## Create these secrets following the steps below:
-## 1) Generate your truststore and keystore files. Helpful script: https://raw.githubusercontent.com/confluentinc/confluent-platform-security-tools/master/kafka-generate-ssl.sh
-## 2) Rename your truststore to `kafka.truststore.jks`.
-## 3) Rename your keystores to `kafka-<role>-X.keystore.jks` where X is the replica number of the .
-## 4) Run the command below one time per broker to create its associated secret (SECRET_NAME_X is the name of the secret you want to create):
-##      kubectl create secret generic SECRET_NAME_0 --from-file=kafka.truststore.jks=./kafka.truststore.jks \
-##        --from-file=kafka-controller-0.keystore.jks=./kafka-controller-0.keystore.jks --from-file=kafka-broker-0.keystore.jks=./kafka-broker-0.keystore.jks ...
-##
-## NOTE: Alternatively, a single keystore can be provided for all nodes under the key 'kafka.keystore.jks', this keystore will be used by all nodes unless overridden by the 'kafka-<role>-X.keystore.jks' file
+  ## @param tls.existingSecret Name of the existing secret containing the TLS certificates for the Kafka nodes.
+  ## When using 'jks' format for certificates, each secret should contain a truststore and a keystore.
+  ## Create these secrets following the steps below:
+  ## 1) Generate your truststore and keystore files. Helpful script: https://raw.githubusercontent.com/confluentinc/confluent-platform-security-tools/master/kafka-generate-ssl.sh
+  ## 2) Rename your truststore to `kafka.truststore.jks`.
+  ## 3) Rename your keystores to `kafka-<role>-X.keystore.jks` where X is the replica number of the .
+  ## 4) Run the command below one time per broker to create its associated secret (SECRET_NAME_X is the name of the secret you want to create):
+  ##      kubectl create secret generic SECRET_NAME_0 --from-file=kafka.truststore.jks=./kafka.truststore.jks \
+  ##        --from-file=kafka-controller-0.keystore.jks=./kafka-controller-0.keystore.jks --from-file=kafka-broker-0.keystore.jks=./kafka-broker-0.keystore.jks ...
+  ##
+  ## NOTE: Alternatively, a single keystore can be provided for all nodes under the key 'kafka.keystore.jks', this keystore will be used by all nodes unless overridden by the 'kafka-<role>-X.keystore.jks' file
   existingSecret: kafka-jks
-  ## existingSecre객체에서 키스토어 비밀번호를 값으로 가지는 키 이름
-  jksKeystoreKey: ""
-  ## 추가/대체 Truststore(JKS)를 지정하는 옵션
-  jksTruststoreSecret: ""
-  jksTruststoreKey: ""
 
-
-  # 1. jks파일 열기 위한 비밀번호다음 시크릿 객체
-  passwordsSecret: kafka-jks-passwords
+  ## @param tls.passwordsSecret Name of the secret containing the password to access the JKS files or PEM key when they are password-protected. (`key`: `password`)
+  ## jks파일 열기 위한 비밀번호다음 시크릿 객체
+  ## kubectl create secret generic kafka-tls-passwords \
+  ## --from-literal=keystore-password=changeit \
+  ## --from-literal=truststore-password=changeit
+  passwordsSecret: ""
+  ## @param tls.passwordsSecretKeystoreKey The secret key from the tls.passwordsSecret 
+  ## containing the password for the Keystore.
+  ##
   passwordsSecretKeystoreKey: keystore-password
+  ## @param tls.passwordsSecretTruststoreKey The secret key from the tls.passwordsSecret containing the password for the Truststore.
+  ##
   passwordsSecretTruststoreKey: truststore-password
-  ## @param tls.passwordsSecretPemPasswordKey 
-  ##The secret key from the tls.passwordsSecret containing the password for the PEM key inside 'tls.passwordsSecret'.
+  ## @param tls.passwordsSecretPemPasswordKey The secret key from the tls.passwordsSecret containing the password for the PEM key inside 'tls.passwordsSecret'.
+  ##
   passwordsSecretPemPasswordKey: ""
-
-  # 2. truststore keystore 비밀번호 직접 입력 
-  keystorePassword: ""
-  truststorePassword: ""
-
-  # 3. pem파일 열기 위한 비밀번호 직접 입력
+  ## @param tls.keystorePassword Password to access the JKS keystore when it is password-protected. Ignored when 'tls.passwordsSecret' is provided.
+  ## When using tls.type=PEM, the generated keystore will use this password or randomly generate one.
+  ##
+  keystorePassword: keystorepassword
+  ## @param tls.truststorePassword Password to access the JKS truststore when it is password-protected. Ignored when 'tls.passwordsSecret' is provided.
+  ## When using tls.type=PEM, the generated keystore will use this password or randomly generate one.
+  ##
+  truststorePassword: truststorepassword
+  ## @param tls.keyPassword Password to access the PEM key when it is password-protected.
+  ## Note: ignored when using 'tls.passwordsSecret'
+  ##
   keyPassword: ""
-
-
-
-
+  ## @param tls.jksKeystoreKey The secret key from the `tls.existingSecret` containing the keystore
+  ## Note: ignored when using 'pem' format for certificates.
+  ##
+  jksKeystoreKey: ""
+  ## @param tls.jksTruststoreSecret Name of the existing secret containing your truststore if truststore not existing or different from the one in the `tls.existingSecret`
+  ## Note: ignored when using 'pem' format for certificates.
+  ##
+  jksTruststoreSecret: ""
+  ## @param tls.jksTruststoreKey The secret key from the `tls.existingSecret` or `tls.jksTruststoreSecret` containing the truststore
+  ## Note: ignored when using 'pem' format for certificates.
+  ##
+  jksTruststoreKey: ""
   ## @param tls.endpointIdentificationAlgorithm The endpoint identification algorithm to validate server hostname using server certificate
   ## Disable server host name verification by setting it to an empty string.
   ## ref: https://docs.confluent.io/current/kafka/authentication_ssl.html#optional-settings
@@ -552,7 +571,7 @@ defaultInitContainers:
   autoDiscovery:
     ## @param defaultInitContainers.autoDiscovery.enabled Enable init container that auto-detects external IPs/ports by querying the K8s API
     ##
-    enabled: false
+    enabled: true
     ## Bitnami Kubectl image
     ## @param defaultInitContainers.autoDiscovery.image.registry [default: REGISTRY_NAME] "auto-discovery" init-containers' image registry
     ## @param defaultInitContainers.autoDiscovery.image.repository [default: REPOSITORY_NAME/os-shell] "auto-discovery" init-containers' image repository
@@ -1653,10 +1672,10 @@ externalAccess:
       ## @param externalAccess.controller.service.type Kubernetes Service type for external access.
       ## It can be NodePort, LoadBalancer or ClusterIP
       ##
-      type: ClusterIP
+      type: NodePort
       ## loadbalancer type
       ports:
-        external: 31090
+        external: 9094
       ## @param externalAccess.controller.service.loadBalancerClass Kubernetes Service Load Balancer class for external access when service type is LoadBalancer
       ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
       ##
@@ -1693,7 +1712,13 @@ externalAccess:
       ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
       ##
       allocateLoadBalancerNodePorts: true
-
+      ## @param externalAccess.controller.service.nodePorts Array of node ports used for each Kafka broker. 
+      ## Length must be the same as replicaCount
+      ## e.g:
+      ## nodePorts:
+      ##   - 30001
+      ##   - 30002
+      ##
       nodePorts: []
       ## @param externalAccess.controller.service.externalIPs Use distinct service host IPs to configure Kafka external listener when service type is NodePort. Length must be the same as replicaCount
       ## e.g:
@@ -1702,9 +1727,10 @@ externalAccess:
       ##   - Y.Y.Y.Y
       ##
       externalIPs: []
-      ## @param externalAccess.controller.service.useHostIPs Use service host IPs to configure Kafka external listener when service type is NodePort
+      ## @param externalAccess.controller.service.useHostIPs 
+      ## Use service host IPs to configure Kafka external listener when service type is NodePort
       ##
-      useHostIPs: false
+      useHostIPs: true
       ## @param externalAccess.controller.service.usePodIPs using the MY_POD_IP address for external access.
       ##
       usePodIPs: false
@@ -1712,7 +1738,7 @@ externalAccess:
       ## NodePort: If not specified, the container will try to get the kubernetes node external IP
       ## ClusterIP: Must be specified, ingress IP or domain where tcp for external ports is configured
       ##
-      domain: test.com
+      domain: ""
       ## @param externalAccess.controller.service.publishNotReadyAddresses Indicates that any agent which deals with endpoints for this Service should disregard any indications of ready/not-ready
       ## ref: https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/
       ##
@@ -1744,8 +1770,7 @@ externalAccess:
       ##
       ports:
         external: 9094
-      ## @param externalAccess.broker.service.loadBalancerClass Kubernetes Service Load Balancer class 
-      ## for external access when service type is LoadBalancer
+      ## @param externalAccess.broker.service.loadBalancerClass Kubernetes Service Load Balancer class for external access when service type is LoadBalancer
       ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
       ##
       loadBalancerClass: ""

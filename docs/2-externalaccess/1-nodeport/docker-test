@@ -1,0 +1,29 @@
+# 1) Minikube IP / NodePort 확인
+MINIKUBE_IP=$(minikube ip)
+
+# 2) client.properties 만들기 (호스트에서)
+PASS=$(kubectl get secret my-kafka-user-passwords -o jsonpath='{.data.client-passwords}' | base64 -d | cut -d , -f 1)
+cat > client.properties <<EOF
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=SCRAM-SHA-256
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required \
+username="user1" password="${PASS}";
+EOF
+
+# 3) Docker 컨테이너로 콘솔 클라이언트 실행 (예: NodePort=31091)
+docker run --rm -it -v "$PWD/client.properties:/tmp/client.properties" bitnami/kafka:4.0.0-debian-12-r7 bash
+
+
+
+# (컨테이너 안에서) 프로듀서/컨슈머
+NODEPORT=32651  
+MINIKUBE_IP="192.168.49.2"
+kafka-console-producer.sh \
+  --producer.config /tmp/client.properties \
+  --bootstrap-server 192.168.49.2:32651 \
+  --topic test
+
+kafka-console-consumer.sh \
+  --consumer.config /tmp/client.properties \
+  --bootstrap-server ${MINIKUBE_IP}:${NODEPORT} \
+  --topic test --from-beginning

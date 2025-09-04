@@ -1,24 +1,24 @@
-FULLNAME="my-kafka"        # 위 로직상 이렇게 됨
-NS="default"
+FULLNAME="my-kafka"       
+NS="kafka"
 CLUSTER_DOMAIN="cluster.local"
 
 cat > openssl-san.cnf <<EOF
 [v3_req]
 subjectAltName = @alt_names
 [alt_names]
-DNS.1 = my-kafka.default.svc.cluster.local
-DNS.2 = my-kafka.default.svc
-DNS.3 = *.my-kafka-controller-headless.default.svc.cluster.local
-DNS.4 = *.my-kafka-controller-headless.default.svc
-DNS.5 = *.my-kafka-broker-headless.default.svc.cluster.local
-DNS.6 = *.my-kafka-broker-headless.default.svc
+DNS.1 = ${FULLNAME}.${NS}.svc.cluster.local
+DNS.2 = ${FULLNAME}.${NS}.svc
+DNS.3 = *.${FULLNAME}-controller-headless.${NS}.svc.cluster.local
+DNS.4 = *.${FULLNAME}-controller-headless.${NS}.svc
+DNS.5 = *.${FULLNAME}-broker-headless.${NS}.svc.cluster.local
+DNS.6 = *.${FULLNAME}-broker-headless.${NS}.svc
 EOF
 
-CN="kafka.kafka-headless.default.svc"
+CN="kafka.kafka-headless.${NS}.svc"
 KEYSTORE_FILENAME="kafka.keystore.jks"
 CA_PASS="capassword"
-KEY_STORE_PASS="keystorepassword"
-TRUST_STORE_PASS="truststorepassword"
+KEY_STORE_PASS="thisiskeystorepassword"
+TRUST_STORE_PASS="thisistruststorepassword"
 
 VALIDITY_IN_DAYS=3650
 DEFAULT_TRUSTSTORE_FILENAME="kafka.truststore.jks"
@@ -45,7 +45,7 @@ mkdir -p "$KEYSTORE_WORKING_DIRECTORY"
 # 다음 단계에서 CSR을 만들고 CA로 다시 서명하는 과정을 거침
 # 발급된 인증서는 다시 keystore에 덮어씌어짐
 
-echo "🪸 keystore jks file"
+echo "🪸 자체 서명된 인증서 & keystore 생성"
 keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME \
   -storetype JKS \
   -alias localhost \
@@ -56,12 +56,12 @@ keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME \
   -storepass "$KEY_STORE_PASS" \
   -keypass "$KEY_STORE_PASS"
 
-echo "🍀 exporting ca cert from trust store (to sign csr)"
+echo "🍀 CA 인증서를 trust store에서 추출: ${CA_CERT_FILE}"
 keytool -keystore $trust_store_file -export -alias CARoot -rfc -file $CA_CERT_FILE \
   -storetype JKS \
   -storepass "$TRUST_STORE_PASS"
 
-echo "🪸 generating csr"
+echo "🪸 CSR 생성"
 keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhost \
   -storetype JKS \
   -certreq -file $KEYSTORE_SIGN_REQUEST \
@@ -69,10 +69,8 @@ keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhos
   -keypass "$KEY_STORE_PASS"
 
 
-echo "🪸 generating crt using ca'cert"
-echo "(Sign the CSR with the CA private key)"
-
-
+echo "🪸 CA 인증서 & 개인키로 CSR 서명(${CA_CERT_FILE}, ${trust_store_private_key_file})"
+echo "openssl-san.cnf 파일을 사용하여 SAN을 복사"
 
 openssl x509 -req \
   -in "$KEYSTORE_SIGN_REQUEST" \
@@ -83,7 +81,7 @@ openssl x509 -req \
   -passin pass:"$CA_PASS"
 
 
-echo "🪼 import ca cert into keystore"
+echo "🪼 CA 인증서를 keystore에 추가"
 keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias CARoot \
   -storetype JKS \
   -import -file $CA_CERT_FILE \
@@ -92,7 +90,7 @@ keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias CARoot \
 
 rm $CA_CERT_FILE
 
-echo "🪼 Import the signed cert into keystore"
+echo "🪼 서명된 인증서를 keystore에 추가"
 keytool -keystore $KEYSTORE_WORKING_DIRECTORY/$KEYSTORE_FILENAME -alias localhost \
   -storetype JKS \
   -import -file $KEYSTORE_SIGNED_CERT \

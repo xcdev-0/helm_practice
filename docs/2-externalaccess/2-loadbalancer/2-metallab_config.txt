@@ -1,0 +1,29 @@
+minikube addons configure metallb
+# 프롬프트 나오면: 192.168.49.240-192.168.49.250  입력
+
+
+kubectl -n metallb-system get cm config -o yaml
+
+
+I have no name!@my-kafka-controller-0:/$  cat /opt/bitnami/kafka/config/server.properties | grep advertised.listeners
+advertised.listeners=CLIENT://my-kafka-controller-0.my-kafka-controller-headless.default.svc.cluster.local:9092,INTERNAL://my-kafka-controller-0.my-kafka-controller-headless.default.svc.cluster.local:9094,EXTERNAL://192.168.49.241:9094
+
+---
+
+❯ kubectl get svc
+NAME                             TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)                      AGE
+kubernetes                       ClusterIP      10.96.0.1        <none>           443/TCP                      46h
+my-kafka                         ClusterIP      10.111.18.189    <none>           9092/TCP,9095/TCP            44h
+my-kafka-controller-0-external   LoadBalancer   10.105.171.241   192.168.49.241   9094:32651/TCP               4h47m
+my-kafka-controller-1-external   LoadBalancer   10.105.112.252   192.168.49.242   9094:31399/TCP               4h47m
+my-kafka-controller-2-external   LoadBalancer   10.107.157.35    192.168.49.240   9094:30355/TCP               4h47m
+my-kafka-controller-headless     ClusterIP      None             <none>           9094/TCP,9092/TCP,9093/TCP   44h
+╭─ ~/De/kubernetes/helm_practice/docs/1-jks/script  on main !3 ?1 ····· ✔  at 14:29:49 ─╮
+╰─                                                                                     ─╯
+# 클러스터 생성(리전)
+gcloud container clusters create-auto ej-auto --region asia-northeast3
+
+# kubeconfig 연결
+gcloud container clusters get-credentials ej-auto --region asia-northeast3
+
+kubectl get nodes

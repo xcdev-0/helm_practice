@@ -6,7 +6,7 @@ set -e  # Exit on any error
 CN="kafka.kafka-headless.default.svc"
 KEYSTORE_FILENAME="kafka.keystore.jks"
 CA_PASS="capassword"
-TRUST_STORE_PASS="truststorepassword"
+TRUST_STORE_PASS="thisistruststorepassword"
 
 VALIDITY_IN_DAYS=3650
 DEFAULT_TRUSTSTORE_FILENAME="kafka.truststore.jks"
