@@ -1,0 +1,33 @@
+ app:
+   image: chat-server:test
+   container_name: chat-server
+   ports:
+     - "8080:8080"
+   depends_on:
+     - mysql
+     - redis
+     - mongo
+     - kafka
+   environment:
+     SPRING_PROFILES_ACTIVE: prod
+     FRONTEND_URL: http://localhost:3001
+     MONGO_URI: mongodb://mongo:27017/chatbot
+     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+     MAIL_HOST: smtp.gmail.com
+     MAIL_PORT: 587
+     MAIL_USERNAME: your_email@gmail.com
+     MAIL_PASSWORD: your_email_password
+     DB_URL: jdbc:mysql://mysql:3306/chatdb
+     APP_DOMAIN_URL: http://localhost:3001
+     DB_USERNAME: chat
+     DB_PASSWORD: chat1234
+     REDIS_HOST: redis
+     REDIS_PORT: 6379
+     JWT_SECRET: T+FITVBc8qEi9tZ/TgN7mfZ9wb0BqArbh4B+RMZ9zKU=  # base64로 인코딩된 시크릿 키
+     GCS_BUCKET_NAME: your-gcs-bucket
+     GOOGLE_APPLICATION_CREDENTIALS: /app/credentials.json
+   volumes:
+     - ./gcp-credentials.json:/app/credentials.json:ro
+   networks:
+     - monitoring_net
+
