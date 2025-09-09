@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: chatbot
+  name: chatbot-server
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatbot-server
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: chatbot-server
+    spec:
+      containers:
+      - image: chatbot-server:latest
+        imagePullPolicy: IfNotPresent
+        name: chatbot-server
+        resources: {}
+        ports:
+          - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: chatbot-config
+        - secretRef:
+            name: chatbot-secret
+status: {}

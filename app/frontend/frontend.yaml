@@ -15,10 +15,14 @@ spec:
     spec:
       containers:
         - name: chat-frontend
-          image: chat-frontend:newone
+          image: chat-frontend:v6
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: frontend-config
+          
 ---
 apiVersion: v1
 kind: Service

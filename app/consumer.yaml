@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-consumer
+  labels:
+    app: chat-consumer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chat-consumer
+  template:
+    metadata:
+      labels:
+        app: chat-consumer
+    spec:
+      containers:
+      - name: chat-consumer
+        image: chat-consumer:latest
+        ports:
+        - containerPort: 8081
+        env:
+        # OpenSearch 환경변수
+        - name: OPENSEARCH_HOST
+          value: "my-opensearch.opensearch.svc.cluster.local"
+        - name: OPENSEARCH_PORT
+          value: "9200"
+        - name: OPENSEARCH_USERNAME
+          value: "admin"
+        - name: OPENSEARCH_PASSWORD
+          value: "Developer@123"
+        - name: OPENSEARCH_SCHEME
+          value: "http"
+        - name: OPENSEARCH_CHAT_INDEX
+          value: "chat-index"
+        
+        # Kafka 환경변수
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "my-kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_PASSWORD
+          value: "user1password"
+        - name: KAFKA_TRUSTSTORE_PASSWORD
+          value: "thisistruststorepassword"
+        
+        # MySQL 환경변수
+        - name: MYSQL_HOST
+          value: "my-mysql.mysql.svc.cluster.local"
+        - name: MYSQL_PORT
+          value: "3306"
+        - name: MYSQL_DATABASE
+          value: "chat_db"
+        - name: MYSQL_USERNAME
+          value: "thisismysqlusername"
+        - name: MYSQL_PASSWORD
+          value: "thisismysqlusernamepassword"
+        
+        # Redis 환경변수
+        - name: REDIS_HOST
+          value: "my-redis-master.redis.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          value: "thisisredispassword"
+      
+        # Server 환경변수
+        - name: SERVER_PORT
+          value: "8081"
+        
+        # Spring Profile
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        # livenessProbe:
+        #   httpGet:
+        #     path: /actuator/health
+        #     port: 8081
+        #   initialDelaySeconds: 60
+        #   periodSeconds: 30
+        #   timeoutSeconds: 10
+        #   failureThreshold: 3
+        
+        # readinessProbe:
+        #   httpGet:
+        #     path: /actuator/health/readiness
+        #     port: 8081
+        #   initialDelaySeconds: 30
+        #   periodSeconds: 10
+        #   timeoutSeconds: 5
+        #   failureThreshold: 3
+        
+        volumeMounts:
+        - name: kafka-truststore
+          mountPath: /app/config
+          readOnly: true
+      
+      volumes:
+      - name: kafka-truststore
+        configMap:
+          name: kafka-truststore
+      
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-consumer-service
+  labels:
+    app: chat-consumer
+spec:
+  selector:
+    app: chat-consumer
+  ports:
+  - protocol: TCP
+    port: 8081
+    targetPort: 8081
+  type: ClusterIP
